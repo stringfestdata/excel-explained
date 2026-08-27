@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How OFFSET() really works</title>
+<meta name="description" content="An interactive explainer for Excel's OFFSET function: walk a reference around a sheet one argument at a time.">
+<style>
+  :root {
+    --ink: #1f2933;
+    --ink-soft: #52606d;
+    --paper: #fafaf8;
+    --card: #ffffff;
+    --line: #d9dde3;
+    --accent: #217346;        /* Excel green */
+    --accent-soft: #dcefe4;
+    --ref-blue: #1a5fb4;
+    --ref-blue-soft: #dbe8f8;
+    --warn: #b4232c;
+    --mono: "Consolas", "SF Mono", "Cascadia Code", Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.65;
+    font-size: 17px;
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 48px 20px 80px; }
+  h1 {
+    font-size: 2.1rem;
+    line-height: 1.2;
+    margin-bottom: 12px;
+    letter-spacing: -0.01em;
+  }
+  h2 { font-size: 1.35rem; margin: 44px 0 12px; }
+  p { margin: 0 0 16px; max-width: 70ch; }
+  code, .formula {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: #eef1f4;
+    border-radius: 4px;
+    padding: 1px 5px;
+    overflow-wrap: break-word;
+  }
+  .lede { font-size: 1.12rem; color: var(--ink-soft); }
+
+  /* ---------- playground ---------- */
+  .playground {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 22px;
+    margin: 24px 0 8px;
+  }
+  .formula-bar {
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    background: #f4f6f8;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 6px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .formula-bar .fx { color: var(--ink-soft); margin-right: 10px; font-style: italic; }
+  .formula-bar .arg-rows   { color: #b4530a; font-weight: bold; }
+  .formula-bar .arg-cols   { color: #7b3fa0; font-weight: bold; }
+  .formula-bar .arg-height { color: var(--accent); font-weight: bold; }
+  .formula-bar .arg-width  { color: #0b6e99; font-weight: bold; }
+  .formula-bar .arg-ref    { color: var(--ref-blue); font-weight: bold; }
+  .result-line {
+    font-size: 0.95rem;
+    margin-bottom: 18px;
+    min-height: 1.6em;
+    font-family: var(--mono);
+    color: var(--ink-soft);
+  }
+  .result-line strong { color: var(--ink); }
+  .result-line.error { color: var(--warn); }
+
+  .pg-body { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+  .controls { flex: 1 1 250px; min-width: 240px; }
+  .gridwrap { flex: 1 1 380px; min-width: 300px; overflow-x: auto; }
+
+  .ctl { margin-bottom: 14px; }
+  .ctl label {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 0.85rem; margin-bottom: 2px;
+  }
+  .ctl label input.val {
+    font-weight: bold; font-size: 1rem; font-family: var(--mono);
+    width: 4.2em; text-align: right;
+    border: 1px solid var(--line); border-radius: 5px;
+    background: #fff; padding: 1px 6px;
+  }
+  .ctl label input.val:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .ctl label input.val::-webkit-outer-spin-button,
+  .ctl label input.val::-webkit-inner-spin-button { opacity: 1; }
+  .ctl input[type=range] { width: 100%; accent-color: var(--accent); }
+  .ctl.c-rows label input.val   { color: #b4530a; }
+  .ctl.c-cols label input.val   { color: #7b3fa0; }
+  .ctl.c-height label input.val { color: var(--accent); }
+  .ctl.c-width label input.val  { color: #0b6e99; }
+  .ctl small { color: var(--ink-soft); font-size: 0.78rem; display: block; line-height: 1.4; }
+
+  .presets { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .presets p { font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 8px; }
+  .presets button {
+    display: block; width: 100%; text-align: left;
+    font-family: inherit; font-size: 0.88rem;
+    background: #f4f6f8; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 7px 11px; margin-bottom: 6px; cursor: pointer;
+  }
+  .presets button:hover { background: var(--accent-soft); border-color: var(--accent); }
+  .presets button.active { background: var(--accent-soft); border-color: var(--accent); font-weight: bold; }
+
+  table.sheet {
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    background: #fff;
+  }
+  table.sheet th, table.sheet td {
+    border: 1px solid #e1e4e8;
+    padding: 3px 9px;
+    text-align: right;
+    min-width: 58px;
+    height: 24px;
+    white-space: nowrap;
+  }
+  table.sheet th {
+    background: #f0f2f4;
+    color: var(--ink-soft);
+    font-weight: normal;
+    text-align: center;
+    min-width: 34px;
+  }
+  td.monthcol { text-align: left; }
+  td.hdrcell { font-weight: bold; background: #f6f8f6; text-align: left; }
+  td.clickable { cursor: pointer; }
+  td.in-range { background: var(--accent-soft); outline: 1px solid var(--accent); outline-offset: -1px; }
+  td.is-ref { outline: 2px solid var(--ref-blue); outline-offset: -2px; background: var(--ref-blue-soft); }
+  td.is-ref.in-range { background: var(--accent-soft); }
+  td.start-cell { position: relative; }
+  .sheet-note { font-size: 0.78rem; color: var(--ink-soft); font-family: inherit; margin-top: 8px; max-width: 46ch; }
+
+  .story {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 20px 0;
+  }
+  .story p { margin-bottom: 10px; }
+  .story p:last-child { margin-bottom: 0; }
+  .bigformula {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    background: #f4f6f8;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 14px;
+    overflow-x: auto;
+    white-space: nowrap;
+    margin: 10px 0;
+  }
+  footer {
+    margin-top: 60px; padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 0.85rem; color: var(--ink-soft);
+  }
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    h1 { font-size: 1.6rem; }
+    .playground { padding: 14px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>How OFFSET() really works</h1>
+  <p class="lede">OFFSET is one of the most misunderstood functions in Excel, partly because its name suggests it moves things. It moves nothing. It takes a cell you name, walks a certain number of rows and columns away from it, and hands back a reference to whatever range it lands on. Once you see the walk, the function is simple.</p>
+
+  <h2>The five arguments</h2>
+  <p>The signature is <code>OFFSET(reference, rows, cols, [height], [width])</code>. Start at <code>reference</code>. Move down by <code>rows</code> (negative moves up) and right by <code>cols</code> (negative moves left). That landing spot becomes the top-left corner of the result. Then <code>height</code> and <code>width</code> say how big the returned range is; leave them out and you get a range the same size as the reference, usually a single cell.</p>
+  <p>On its own, a reference to a range isn't much to look at, so OFFSET almost always lives inside something that consumes a range: SUM, AVERAGE, a chart series. The example below is the one I use in training sessions: a table of monthly net flows for a single mandate, 24 months, newest at the bottom, and we want the sum of the most recent 12.</p>
+
+  <h2>Try it</h2>
+  <p>The grid is a slice of a worksheet. The table's <code>NetFlow</code> header sits in cell <span style="color:var(--ref-blue); font-weight:bold; font-family:var(--mono); font-size:0.9em;">F86</span>, which is our reference (click any cell to move it). Drag the sliders and watch where the green range lands.</p>
+
+  <div class="playground">
+    <div class="formula-bar" id="formulaBar"></div>
+    <div class="result-line" id="resultLine"></div>
+    <div class="pg-body">
+      <div class="controls">
+        <div class="ctl c-rows">
+          <label><span>rows (down &darr;)</span><input type="number" class="val" id="rowsVal" min="-5" max="28" step="1" value="0"></label>
+          <input type="range" id="rowsSlider" min="-5" max="28" value="0">
+        </div>
+        <div class="ctl c-cols">
+          <label><span>cols (right &rarr;)</span><input type="number" class="val" id="colsVal" min="-2" max="2" step="1" value="0"></label>
+          <input type="range" id="colsSlider" min="-2" max="2" value="0">
+        </div>
+        <div class="ctl c-height">
+          <label><span>height (rows tall)</span><input type="number" class="val" id="heightVal" min="1" max="26" step="1" value="1"></label>
+          <input type="range" id="heightSlider" min="1" max="26" value="1">
+        </div>
+        <div class="ctl c-width">
+          <label><span>width (cols wide)</span><input type="number" class="val" id="widthVal" min="1" max="3" step="1" value="1"></label>
+          <input type="range" id="widthSlider" min="1" max="3" value="1">
+        </div>
+        <div class="presets">
+          <p>Or build the trailing-12-month sum one step at a time:</p>
+          <button id="p1">1&nbsp; Start at the header (move nowhere)</button>
+          <button id="p2">2&nbsp; Walk down 13 rows to the first of the last 12</button>
+          <button id="p3">3&nbsp; Stretch the window: 12 tall, 1 wide</button>
+          <button id="p4">4&nbsp; A 25th month arrives: watch the window slide</button>
+        </div>
+      </div>
+      <div class="gridwrap">
+        <table class="sheet" id="sheet"></table>
+        <p class="sheet-note" id="sheetNote">Blue cell: the reference. Green range: what OFFSET returns.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2>Why 13, and why it keeps working</h2>
+  <div class="story">
+    <p>With 24 months of data, the last 12 begin at month 13. But hard-coding 13 breaks the moment a new month lands, so we count instead: <code>COUNTA(MandateMonths[NetFlow])</code> returns 24, and 24 &minus; 11 = 13 rows below the header is exactly where the trailing window starts. Put it together:</p>
+    <div class="bigformula">=SUM(OFFSET(MandateMonths[[#Headers],[NetFlow]], COUNTA(MandateMonths[NetFlow])-11, 0, 12, 1))</div>
+    <p>Start at the header, walk down COUNTA&minus;11 rows, take a range 12 tall and 1 wide, and sum it. When month 25 is typed under the table, the table grows, COUNTA becomes 25, the walk becomes 14, and the window slides down one row on its own. Press button 4 above to see it happen.</p>
+  </div>
+
+  <h2>What can go wrong</h2>
+  <p>Drag the <code>rows</code> slider negative and the window climbs off the top of the table: now you're summing the wrong months plus whatever blank cells sit above the header, and Excel raises no complaint at all, since blanks sum as zero. On a real sheet those cells might hold a subtotal or a fee schedule instead of nothing. Only when the walk goes above row 1 or left of column A does OFFSET return <code>#REF!</code>, because those cells don't exist. The other cost is invisible: OFFSET is volatile, meaning Excel recalculates it every time anything on the sheet changes. One is harmless. A few thousand of them is why some old workbooks crawl.</p>
+  <p>Which is the honest ending to this story. In modern Excel you rarely need OFFSET for dynamic ranges: a chart or formula built on a Table column grows by itself, and functions like TAKE can grab the last 12 rows of a column directly (<code>=SUM(TAKE(MandateMonths[NetFlow],-12))</code>). OFFSET is worth understanding mostly because you will meet it in workbooks that predate those tools, and because the walk it performs (start here, move this far, take a range this big) is the clearest mental model there is for how Excel references actually behave.</p>
+
+  <footer>
+    The data is a made-up monthly flow table used in my Excel training sessions. Built by <a href="https://stringfestanalytics.com">George Mount</a>. Part of the <a href="../">Excel Explained</a> series.
+  </footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- data ----------------------------------------------------------
+  var baseData = [
+    ["Jul 2024", 0.00, 765.23], ["Aug 2024", 0.00, 757.56],
+    ["Sep 2024", 0.00, 748.32], ["Oct 2024", 0.00, 712.32],
+    ["Nov 2024", -129.93, 582.63], ["Dec 2024", 0.00, 586.02],
+    ["Jan 2025", 0.00, 590.83], ["Feb 2025", 0.00, 598.44],
+    ["Mar 2025", 0.00, 592.81], ["Apr 2025", 0.00, 590.04],
+    ["May 2025", 0.00, 598.36], ["Jun 2025", 148.58, 745.83],
+    ["Jul 2025", 0.00, 716.60], ["Aug 2025", 0.00, 737.78],
+    ["Sep 2025", 0.00, 728.62], ["Oct 2025", 0.00, 748.84],
+    ["Nov 2025", 0.00, 773.09], ["Dec 2025", 71.16, 861.61],
+    ["Jan 2026", 0.00, 879.79], ["Feb 2026", 0.00, 915.29],
+    ["Mar 2026", 0.00, 905.48], ["Apr 2026", 0.00, 908.13],
+    ["May 2026", 0.00, 905.47], ["Jun 2026", 0.00, 892.24]
+  ];
+  var extraMonth = ["Jul 2026", 12.40, 904.64];
+
+  // Rendered window of the sheet
+  var COLS = ["D", "E", "F", "G", "H"];
+  var FIRST_ROW = 84, LAST_ROW = 113;
+  var HEADER_ROW = 86;                       // Month | NetFlow | EndingAUM
+  var HEADERS = { E: "Month", F: "NetFlow", G: "EndingAUM" };
+
+  var state = { refCol: "F", refRow: 86, rows: 0, cols: 0, height: 1, width: 1, extra: false };
+
+  function data() { return state.extra ? baseData.concat([extraMonth]) : baseData; }
+
+  function cellValue(col, row) {
+    if (row === HEADER_ROW && HEADERS[col]) return HEADERS[col];
+    var i = row - HEADER_ROW - 1, d = data();
+    if (i >= 0 && i < d.length) {
+      if (col === "E") return d[i][0];
+      if (col === "F") return d[i][1];
+      if (col === "G") return d[i][2];
+    }
+    return null;
+  }
+
+  function colIndex(c) { return c.charCodeAt(0) - 64; }        // A=1
+  function colLetter(i) { return String.fromCharCode(64 + i); }
+
+  function fmt(n) {
+    return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // ---- OFFSET result -------------------------------------------------
+  function computeRange() {
+    var r1 = state.refRow + state.rows;
+    var c1 = colIndex(state.refCol) + state.cols;
+    var r2 = r1 + state.height - 1;
+    var c2 = c1 + state.width - 1;
+    if (r1 < 1 || c1 < 1) return { error: true };
+    return { error: false, r1: r1, c1: c1, r2: r2, c2: c2 };
+  }
+
+  function rangeAddress(rg) {
+    var a = colLetter(rg.c1) + rg.r1;
+    if (rg.r1 === rg.r2 && rg.c1 === rg.c2) return a;
+    return a + ":" + colLetter(rg.c2) + rg.r2;
+  }
+
+  // ---- render --------------------------------------------------------
+  var sheet = document.getElementById("sheet");
+
+  function render() {
+    var rg = computeRange();
+
+    // formula bar
+    document.getElementById("formulaBar").innerHTML =
+      '<span class="fx">fx</span>=OFFSET(' +
+      '<span class="arg-ref">' + state.refCol + state.refRow + "</span>, " +
+      '<span class="arg-rows">' + state.rows + "</span>, " +
+      '<span class="arg-cols">' + state.cols + "</span>, " +
+      '<span class="arg-height">' + state.height + "</span>, " +
+      '<span class="arg-width">' + state.width + "</span>)";
+
+    // result line
+    var line = document.getElementById("resultLine");
+    line.classList.remove("error");
+    if (rg.error) {
+      line.classList.add("error");
+      line.innerHTML = "#REF! The range would start above row 1 or left of column A. Those cells don't exist.";
+    } else {
+      var vals = [], numeric = [], allBlank = true;
+      for (var r = rg.r1; r <= rg.r2; r++) {
+        for (var c = rg.c1; c <= rg.c2; c++) {
+          var v = cellValue(colLetter(c), r);
+          vals.push(v);
+          if (v !== null) allBlank = false;
+          if (typeof v === "number") numeric.push(v);
+        }
+      }
+      var msg = "returns <strong>" + rangeAddress(rg) + "</strong>";
+      if (vals.length === 1) {
+        var v0 = vals[0];
+        msg += " &nbsp;&rarr;&nbsp; " + (v0 === null ? "(blank)" : (typeof v0 === "number" ? fmt(v0) : "&quot;" + v0 + "&quot;"));
+      } else if (numeric.length > 0) {
+        var s = numeric.reduce(function (a, b) { return a + b; }, 0);
+        msg += " &nbsp;&rarr;&nbsp; SUM = <strong>" + fmt(s) + "</strong>";
+        if (numeric.length < vals.length && !allBlank) msg += " <span style='font-size:0.82em'>(text and blanks ignored)</span>";
+      } else if (allBlank) {
+        msg += " &nbsp;&rarr;&nbsp; all blank, SUM = 0.00";
+      } else {
+        msg += " &nbsp;&rarr;&nbsp; SUM = 0.00 (no numbers in range)";
+      }
+      if (rg.r1 < FIRST_ROW || rg.r2 > LAST_ROW || rg.c1 < colIndex("D") || rg.c2 > colIndex("H")) {
+        msg += " <span style='font-size:0.82em'>(part of the range is outside the slice of the sheet shown here)</span>";
+      }
+      line.innerHTML = msg;
+    }
+
+    // grid
+    var html = "<tr><th></th>";
+    COLS.forEach(function (c) { html += "<th>" + c + "</th>"; });
+    html += "</tr>";
+    for (var row = FIRST_ROW; row <= LAST_ROW; row++) {
+      html += "<tr><th>" + row + "</th>";
+      for (var ci = 0; ci < COLS.length; ci++) {
+        var col = COLS[ci];
+        var v = cellValue(col, row);
+        var cls = ["clickable"];
+        if (row === HEADER_ROW && HEADERS[col]) cls.push("hdrcell");
+        if (col === "E" && v !== null && row !== HEADER_ROW) cls.push("monthcol");
+        if (!rg.error) {
+          var cn = colIndex(col);
+          if (row >= rg.r1 && row <= rg.r2 && cn >= rg.c1 && cn <= rg.c2) cls.push("in-range");
+        }
+        if (col === state.refCol && row === state.refRow) cls.push("is-ref");
+        var text = v === null ? "" : (typeof v === "number" ? fmt(v) : v);
+        html += '<td class="' + cls.join(" ") + '" data-col="' + col + '" data-row="' + row + '">' + text + "</td>";
+      }
+      html += "</tr>";
+    }
+    sheet.innerHTML = html;
+
+    // sliders + number boxes (don't clobber a box the user is typing in)
+    [["rows", "rowsVal", "rowsSlider"], ["cols", "colsVal", "colsSlider"],
+     ["height", "heightVal", "heightSlider"], ["width", "widthVal", "widthSlider"]]
+      .forEach(function (m) {
+        var box = document.getElementById(m[1]);
+        if (document.activeElement !== box) box.value = state[m[0]];
+        document.getElementById(m[2]).value = state[m[0]];
+      });
+
+    var note = document.getElementById("sheetNote");
+    if (state.extra) {
+      note.innerHTML = "A 25th month (Jul 2026) was typed under the table, so COUNTA is now <strong>25</strong> and the walk down becomes 25 &minus; 11 = <strong>14</strong>. The 12-row window slid down by one, all by itself.";
+    } else {
+      note.innerHTML = "Blue cell: the reference. Green range: what OFFSET returns. COUNTA of NetFlow is <strong>24</strong>.";
+    }
+  }
+
+  // ---- events --------------------------------------------------------
+  function clamp(n, min, max) { return Math.min(max, Math.max(min, n)); }
+
+  function bindSlider(id, key) {
+    document.getElementById(id).addEventListener("input", function () {
+      state[key] = parseInt(this.value, 10);
+      clearPresets();
+      render();
+    });
+  }
+  bindSlider("rowsSlider", "rows");
+  bindSlider("colsSlider", "cols");
+  bindSlider("heightSlider", "height");
+  bindSlider("widthSlider", "width");
+
+  function bindNumber(id, key) {
+    var box = document.getElementById(id);
+    var min = parseInt(box.min, 10), max = parseInt(box.max, 10);
+    box.addEventListener("input", function () {
+      var n = parseInt(this.value, 10);
+      if (isNaN(n)) return;                    // mid-edit, e.g. "-" or empty
+      state[key] = clamp(n, min, max);
+      clearPresets();
+      render();
+    });
+    box.addEventListener("change", function () {  // blur or Enter: snap display to the real value
+      this.value = state[key];
+    });
+    box.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") this.blur();
+    });
+  }
+  bindNumber("rowsVal", "rows");
+  bindNumber("colsVal", "cols");
+  bindNumber("heightVal", "height");
+  bindNumber("widthVal", "width");
+
+  sheet.addEventListener("click", function (e) {
+    var td = e.target.closest("td");
+    if (!td || !td.dataset.col) return;
+    state.refCol = td.dataset.col;
+    state.refRow = parseInt(td.dataset.row, 10);
+    clearPresets();
+    render();
+  });
+
+  var presetBtns = ["p1", "p2", "p3", "p4"];
+  function clearPresets() {
+    presetBtns.forEach(function (id) { document.getElementById(id).classList.remove("active"); });
+  }
+  function setPreset(id, s) {
+    clearPresets();
+    document.getElementById(id).classList.add("active");
+    state.refCol = "F"; state.refRow = 86;
+    state.rows = s.rows; state.cols = 0; state.height = s.height; state.width = 1;
+    state.extra = !!s.extra;
+    render();
+  }
+  document.getElementById("p1").addEventListener("click", function () { setPreset("p1", { rows: 0, height: 1, extra: false }); });
+  document.getElementById("p2").addEventListener("click", function () { setPreset("p2", { rows: 13, height: 1, extra: false }); });
+  document.getElementById("p3").addEventListener("click", function () { setPreset("p3", { rows: 13, height: 12, extra: false }); });
+  document.getElementById("p4").addEventListener("click", function () { setPreset("p4", { rows: 14, height: 12, extra: true }); });
+
+  render();
+})();
+</script>
+</body>
+</html>

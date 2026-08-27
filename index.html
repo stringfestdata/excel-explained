@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Excel Explained</title>
+<meta name="description" content="Interactive explainers for how Excel really works, one function at a time.">
+<style>
+  :root {
+    --ink: #1f2933;
+    --ink-soft: #52606d;
+    --paper: #fafaf8;
+    --card: #ffffff;
+    --line: #d9dde3;
+    --accent: #217346;
+    --accent-soft: #dcefe4;
+    --mono: "Consolas", "SF Mono", "Cascadia Code", Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.65;
+    font-size: 17px;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 64px 20px 80px; }
+  h1 { font-size: 2.3rem; line-height: 1.15; margin-bottom: 14px; letter-spacing: -0.01em; }
+  .lede { font-size: 1.12rem; color: var(--ink-soft); margin-bottom: 40px; max-width: 60ch; }
+  code { font-family: var(--mono); font-size: 0.86em; background: #eef1f4; border-radius: 4px; padding: 1px 5px; }
+
+  ul.explainers { list-style: none; }
+  ul.explainers li { margin-bottom: 14px; }
+  ul.explainers a {
+    display: block;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 22px;
+    text-decoration: none;
+    color: inherit;
+  }
+  ul.explainers a:hover { border-color: var(--accent); background: var(--accent-soft); }
+  ul.explainers .fn {
+    font-family: var(--mono);
+    font-weight: bold;
+    font-size: 1.05rem;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 2px;
+  }
+  ul.explainers .blurb { color: var(--ink-soft); font-size: 0.95rem; }
+
+  .coming { margin-top: 28px; color: var(--ink-soft); font-size: 0.95rem; }
+
+  footer {
+    margin-top: 64px; padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 0.85rem; color: var(--ink-soft);
+  }
+  footer a { color: inherit; }
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    h1 { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Excel Explained</h1>
+  <p class="lede">Interactive explainers for how Excel really works. Each one takes a function people use by rote (or avoid entirely) and lets you pull it apart argument by argument until the mental model clicks.</p>
+
+  <ul class="explainers">
+    <!-- To add a new explainer: copy one <li> block, point the href at the new
+         folder, and update the function name and blurb. -->
+    <li>
+      <a href="offset/">
+        <span class="fn">OFFSET()</span>
+        <span class="blurb">It doesn't move anything. Walk a reference around a live grid and build a trailing-12-month sum one argument at a time.</span>
+      </a>
+    </li>
+  </ul>
+
+  <p class="coming">More on the way. If there's a function you'd like to see pulled apart next, <a href="https://stringfestanalytics.com">let me know</a>.</p>
+
+  <footer>
+    Built by <a href="https://stringfestanalytics.com">George Mount</a>, Stringfest Analytics.
+  </footer>
+</main>
+</body>
+</html>
